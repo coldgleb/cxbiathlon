@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101115">
+<meta name="description" content="Программа и результаты гонок СХБИАТЛОН в Антхольце.">
+<title>Антхольц — СХБИАТЛОН</title>
+<link rel="stylesheet" href="style.css">
+<script defer src="data.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<header class="mast">
+ <div class="wrap mast-inner">
+  <div class="brand"><span class="target" aria-hidden="true"></span> СХБИАТЛОН</div>
+  <h1>Антхольц<span>.</span></h1>
+  <p>Программа и результаты этапа</p>
+ </div>
+</header>
+<nav class="race-nav" aria-label="Выбор гонки"><div class="wrap nav-inner" id="race-nav"></div></nav>
+<main class="wrap" id="main">
+ <noscript>Для просмотра результатов включите JavaScript.</noscript>
+ <div class="race-heading"><div><div class="eyebrow" id="race-number"></div><h2 id="race-title"></h2></div><span class="status" id="race-status"></span></div>
+ <div id="overview"></div>
+ <section class="panel protocol" id="protocol" aria-labelledby="protocol-title">
+  <div class="panel-heading protocol-head"><div><h3 id="protocol-title">Финишный протокол</h3><p id="row-count" aria-live="polite"></p></div>
+   <label class="search"><span class="sr-only">Имя или страна</span><input id="search" type="search" placeholder="Имя или страна"></label>
+  </div>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Таблица результатов">
+  <table><thead id="columns"></thead><tbody id="rows"></tbody></table>
+  </div>
+  <p class="empty" id="no-match" hidden>По вашему запросу никого не найдено.</p>
+ </section>
+</main>
+<footer class="wrap"><span>#СХБИАТЛОН</span><a href="https://docs.google.com/spreadsheets/d/1KloxtYkffp7uAua6J3q4vwwSP2wAH-2YrwFWhX0dOTo/edit?gid=1291266509#gid=1291266509" target="_blank" rel="noopener">Источник данных ↗</a></footer>
+</body>
+</html>
