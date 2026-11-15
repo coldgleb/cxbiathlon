@@ -47,16 +47,13 @@ const raceAbbreviations = new Map([
   ["Масс-старт", "МС"]
 ]);
 const seasonRaceColumns = byId("season-race-columns");
+seasonRaceColumns.closest("table").style.setProperty("--race-count", races.length);
 seasonRaceColumns.insertAdjacentHTML("beforebegin", [...stages.values()].map(stageRaces =>
-  '<colgroup span="' + stageRaces.length + '"></colgroup>'
+  '<colgroup><col class="race-finish-column" span="' + stageRaces.length + '"></colgroup>'
 ).join(""));
-seasonRaceColumns.innerHTML = '<tr><th scope="col" rowspan="2" aria-label="Место">Номер</th>' +
-  '<th scope="col" rowspan="2" aria-label="Изменение места">±</th>' +
-  ["Участник", "Страна", "Очки", "Отставание", "Лучший финиш"]
-    .map(label => '<th scope="col" rowspan="2">' + label + '</th>').join("") +
-  [...stages].map(([venue, stageRaces]) =>
+const raceStageHeaders = [...stages].map(([venue, stageRaces]) =>
     '<th scope="colgroup" class="race-result race-stage-start" colspan="' + stageRaces.length + '">' +
-    escapeText(venue) + '</th>'
+    '<span class="race-stage-name" title="' + escapeText(venue) + '">' + escapeText(venue) + '</span></th>'
   ).join("") + '</tr><tr>' +
   [...stages.values()].flatMap(stageRaces => stageRaces.map((race, index) => {
     const abbreviation = raceAbbreviations.get(race.name) ??
@@ -110,18 +107,10 @@ function getStandings(byNation, countedRaces = races) {
   const totals = new Map();
   for (const race of countedRaces) {
     for (const [key, score] of getRaceScores(race, byNation)) {
-      if (!totals.has(key)) totals.set(key, { ...score, key, points: 0, races: 0, bestCount: 0 });
+      if (!totals.has(key)) totals.set(key, { ...score, key, points: 0, races: 0 });
       const total = totals.get(key);
       total.points += score.points;
       total.races += 1;
-      if (!byNation) {
-        if (score.finish < total.finish) {
-          total.finish = score.finish;
-          total.bestCount = 1;
-        } else if (score.finish === total.finish) {
-          total.bestCount += 1;
-        }
-      }
     }
   }
   const scores = [...totals.values()].sort((a, b) =>
@@ -134,49 +123,64 @@ function getStandings(byNation, countedRaces = races) {
   });
 }
 
+function finishBadge(place) {
+  const tone = place === 1 ? "gold" : place === 2 ? "silver" : place === 3 ? "bronze" :
+    place <= 8 ? "green" : place <= 20 ? "purple" : "deep-purple";
+  return '<span class="finish-place finish-' + tone + '">' + place + '</span>';
+}
+
 function renderStandings(byNation) {
   const scores = getStandings(byNation);
   const query = normalizeSearch(standingsSearch.value);
-  const raceScores = byNation ? [] : [...stages.values()].flatMap(stageRaces =>
-    stageRaces.map((race, index) => ({ results: getRaceScores(race, false), stageStart: index === 0 }))
+  const raceScores = [...stages.values()].flatMap(stageRaces =>
+    stageRaces.map((race, index) => ({
+      scores: getRaceScores(race, byNation),
+      stageStart: index === 0
+    }))
   );
-  const previousRanks = byNation ? null : new Map(
-    getStandings(false, completedRaces.slice(0, -1)).map(row => [row.key, row.rank])
+  const previousRanks = new Map(
+    getStandings(byNation, completedRaces.slice(0, -1)).map(row => [row.key, row.rank])
   );
-  byId("season-race-results").hidden = byNation;
-  byId("nations-results").hidden = !byNation;
+  seasonRaceColumns.closest("table").classList.toggle("nations-table", byNation);
+  byId("standings-base-columns").innerHTML = '<col class="race-rank-column"><col class="race-movement-column"><col>' +
+    (byNation ? '' : '<col class="race-country-column">') +
+    '<col class="race-points-column"><col class="race-gap-column" span="2"><col class="race-best-column">';
+  seasonRaceColumns.innerHTML = '<tr><th scope="col" rowspan="2" aria-label="Место">Номер</th>' +
+    '<th scope="col" rowspan="2" aria-label="Изменение места">±</th>' +
+    (byNation ? ["Страна", "Очки"] : ["Участник", "Страна", "Очки"])
+      .map(label => '<th scope="col" rowspan="2">' + label + '</th>').join("") +
+    '<th scope="col" rowspan="2" colspan="2" class="race-result">ОТСТАВАНИЕ</th>' +
+    '<th scope="col" rowspan="2" class="race-result">Лучший<br>финиш</th>' + raceStageHeaders;
   byId("standings-title").textContent = byNation ? "Лига Наций" : "Результаты гонок";
   standingsSearch.placeholder = byNation ? "Название страны" : "Имя или страна";
   byId("standings-empty").hidden = scores.length > 0;
-  const rows = scores.filter(row => matchesSearch(row, query)).map(row => {
+  const rows = scores.flatMap((row, index) => {
+    if (!matchesSearch(row, query)) return [];
     const country = countryCell(row.country, byNation);
-    const start = '<tr><td><span class="place p' + row.rank + '">' + row.rank + '</span></td>';
-    if (byNation) {
-      const width = scores[0].points ? 100 * row.points / scores[0].points : 0;
-      return start + '<th scope="row">' + country + '</th><td class="num">' + row.races +
-        '</td><td class="num"><div class="points-cell"><span class="track" aria-hidden="true"><i style="--width:' +
-        width + '%"></i></span><strong>' + row.points + '</strong></div></td></tr>';
-    }
-    const priorRank = previousRanks?.get(row.key);
+    const priorRank = previousRanks.get(row.key);
     const change = priorRank == null ? null : priorRank - row.rank;
     const movement = change > 0 ? "▲" + change : change < 0 ? "▼" + Math.abs(change) : "—";
     const movementClass = change > 0 ? " gain" : change < 0 ? " loss" : "";
-    const gap = scores[0] === row ? null : scores[0].points - row.points;
-    const athlete = start + '<td class="num' + movementClass + '" aria-label="' +
+    const leaderGap = index ? row.points - scores[0].points : "—";
+    const previousGap = index ? row.points - scores[index - 1].points : "—";
+    const finishes = raceScores.map(({ scores, stageStart }) => ({ place: scores.get(row.key)?.finish, stageStart }));
+    const bestFinish = Math.min(...finishes.map(({ place }) => place ?? Infinity));
+    const summary = '<tr><td><span class="place p' + row.rank + '">' + row.rank + '</span></td>' +
+      '<td class="num' + movementClass + '" aria-label="' +
       (change == null ? "Нет предыдущего места" : change > 0 ? "+" + change : change) + '">' + movement + '</td>' +
-      '<th scope="row">' + athleteLink(row) + '</th><td>' + country + '</td><td class="num points"><strong>' +
-      row.points + '</strong></td><td class="num">' + (gap == null ? "—" : gap ? "+" + gap : "0") + '</td>' +
-      '<td class="num">' + row.finish + '-е (×' + row.bestCount + ')</td>';
-    return athlete + raceScores.map(({ results, stageStart }) => {
-      const finish = results.get(row.key)?.finish;
+      (byNation ? '<th scope="row">' + country + '</th>'
+        : '<th scope="row">' + athleteLink(row) + '</th><td>' + country + '</td>') +
+      '<td class="num points"><strong>' + row.points + '</strong></td>' +
+      '<td class="num race-result"><span class="sr-only">До лидера: </span>' + leaderGap + '</td>' +
+      '<td class="num race-result"><span class="sr-only">До предыдущего: </span>' + previousGap + '</td>' +
+      '<td class="num race-result">' + finishBadge(bestFinish) + '</td>';
+    return summary + finishes.map(({ place, stageStart }) => {
       const classes = 'num race-result' + (stageStart ? ' race-stage-start' : '');
-      if (finish == null) return '<td class="' + classes + ' race-result-empty">—</td>';
-      const band = finish === 1 ? "winner" : finish <= 5 ? "top-five" :
-        finish <= 10 ? "top-ten" : finish <= 20 ? "top-twenty" : "other";
-      return '<td class="' + classes + '"><span class="finish-place finish-' + band + '">' + finish + '</span></td>';
+      if (place == null) return '<td class="' + classes + ' race-result-empty">—</td>';
+      return '<td class="' + classes + '">' + finishBadge(place) + '</td>';
     }).join("") + '</tr>';
   });
-  const tableRows = byId(byNation ? "standings-rows" : "season-race-rows");
+  const tableRows = byId("season-race-rows");
   tableRows.innerHTML = rows.join("");
   tableRows.closest(".table-scroll").hidden = !rows.length;
   byId("standings-no-match").hidden = !scores.length || rows.length > 0;
@@ -188,7 +192,6 @@ function renderPage() {
     ? "stages" : hash === "#nations" ? "nations" : "overall";
   if (activeSection !== section) {
     standingsSearch.value = "";
-    byId("standings-rows").closest(".table-scroll").scrollLeft = 0;
     byId("season-race-rows").closest(".table-scroll").scrollLeft = 0;
   }
   activeSection = section;
@@ -203,7 +206,7 @@ function renderPage() {
 }
 
 const raceViews = {
-  finish: { title: "Финишный протокол", columns: ["Время", "Отставание", "Промахи"] },
+  finish: { title: "Финишный протокол", columns: ["Промахи", "Отставание", "Время"] },
   ski: { title: "Лыжный ход", columns: ["Время ходом", "Отставание"] },
   shoot: { title: "Стрельба" }
 };
@@ -246,7 +249,7 @@ function profileChart(history, byNation) {
       '"/><text x="' + item.x + '" y="181" text-anchor="middle">' + item.number + '</text>').join("") +
     '<polyline points="' + ranked.map(item => item.x + "," + y(item.rank)).join(" ") + '"/>' +
     ranked.map(item => {
-      const race = escapeText(item.race.name + " · " + item.race.venue);
+      const race = escapeText(item.race.venue + " · " + item.race.name);
       return '<g class="chart-point" tabindex="0" role="img" data-race="' + race + '" data-rank="' + item.rank +
         '" aria-label="' + race + ', ' + item.rank + '-е место">' +
         '<circle class="chart-hit" cx="' + item.x + '" cy="' + y(item.rank) + '" r="19"/>' +
@@ -328,7 +331,7 @@ function openProfile(kind, key) {
         : [placeLabel(score?.finish), displayTime(score?.row.time), score ? gapLabel(score.row) : "—",
           score ? misses(score.row) : "—", score?.points ?? "—", placeLabel(rank)];
       return '<tr><th scope="row"><a class="profile-link" href="' + raceHash(race) + '">' +
-        (index + 1) + ' · ' + escapeText(race.name) + '</a><small>' + escapeText(race.venue) + '</small></th>' +
+        (index + 1) + ' · ' + escapeText(race.venue) + '</a><small>' + escapeText(race.name) + '</small></th>' +
         values.map(value => '<td class="num">' + value + '</td>').join("") + '</tr>';
     }).join("") + '</tbody></table></div>';
   profile.classList.toggle("nation-profile", byNation);
@@ -379,7 +382,7 @@ function renderRaceView() {
   let columns = labels.columns;
   if (view === "finish") {
     tableRows = entries.map(row => ({
-      ...row, place: row.rank, metrics: [displayTime(row.time), gapLabel(row), misses(row)]
+      ...row, place: row.rank, metrics: [misses(row), gapLabel(row), displayTime(row.time)]
     }));
   } else if (view === "ski") {
     const sorted = withSkiTimes.sort((a, b) => a.skiTime - b.skiTime || a.rank - b.rank);
@@ -399,6 +402,9 @@ function renderRaceView() {
     }));
   }
   byId("protocol-title").textContent = (view === "finish" ? current.name : labels.title) + " — " + current.venue;
+  const metricColumns = byId("race-metric-columns");
+  metricColumns.span = columns.length;
+  metricColumns.closest("table").style.setProperty("--race-metric-count", columns.length);
   byId("columns").innerHTML = '<tr><th scope="col" aria-label="Место">Номер</th>' + ["Участник", "Страна", ...columns]
     .map(label => '<th scope="col"' + (label === "Вне лыжного хода"
       ? ' title="Финишное время минус время ходом. Разница может включать штрафы."' : '') +

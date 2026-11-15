@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#091725">
 <meta name="description" content="Программа этапов и результаты гонок СХБИАТЛОН.">
 <title>СХБИАТЛОН — этапы и результаты</title>
-<link rel="stylesheet" href="style.css">
-<script defer src="data.js"></script>
-<script defer src="app.js"></script>
+<link rel="stylesheet" href="css/style.css">
+<script defer src="js/data.js"></script>
+<script defer src="js/app.js"></script>
 </head>
 <body>
 <header class="mast">
@@ -36,16 +36,10 @@
    <h2 id="standings-title"></h2>
    <label class="search"><span>Поиск в зачёте</span><input id="standings-search" type="search" placeholder="Имя или страна"></label>
   </div>
-  <div id="nations-results" hidden>
-   <p class="scroll-hint" id="standings-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все столбцы.</p>
-   <div class="table-scroll" tabindex="0" role="region" aria-labelledby="standings-title" aria-describedby="standings-scroll-hint">
-    <table><thead><tr><th scope="col" aria-label="Место">№</th><th scope="col">Страна</th><th scope="col">Гонки</th><th scope="col">Очки</th></tr></thead><tbody id="standings-rows"></tbody></table>
-   </div>
-  </div>
-  <div id="season-race-results" hidden>
+  <div>
    <p class="scroll-hint" id="season-race-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все гонки.</p>
    <div class="table-scroll" tabindex="0" role="region" aria-labelledby="standings-title" aria-describedby="season-race-scroll-hint">
-    <table class="race-results-table"><colgroup span="7"></colgroup><thead id="season-race-columns"></thead><tbody id="season-race-rows"></tbody></table>
+    <table class="race-results-table"><colgroup id="standings-base-columns"></colgroup><thead id="season-race-columns"></thead><tbody id="season-race-rows"></tbody></table>
    </div>
   </div>
   <p class="empty" id="standings-empty" hidden>Очки появятся после публикации протоколов гонок.</p>
@@ -73,7 +67,9 @@
   </div>
   <p class="scroll-hint" id="race-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все столбцы.</p>
   <div class="table-scroll" tabindex="0" role="region" aria-labelledby="protocol-title" aria-describedby="race-scroll-hint">
-  <table><thead id="columns"></thead><tbody id="rows"></tbody></table>
+  <table class="race-protocol-table"><colgroup>
+    <col class="race-rank-column"><col><col class="race-country-column"><col id="race-metric-columns" class="race-metric-column">
+  </colgroup><thead id="columns"></thead><tbody id="rows"></tbody></table>
   </div>
   <p class="empty" id="no-match" hidden>По вашему запросу никого не найдено.</p>
  </section>
