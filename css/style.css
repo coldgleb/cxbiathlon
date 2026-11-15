@@ -220,8 +220,6 @@ table td:last-child, table th:last-child { text-align: right; }
 .empty { margin-top: 12px; color: var(--muted); }
 .country-flag { font: 400 1.05rem/1 "Country Flags", "Noto Color Emoji", "Apple Color Emoji", sans-serif; vertical-align: -.08em; }
 footer { display: flex; justify-content: space-between; gap: 12px; padding-block: 16px 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
-footer a:hover { color: var(--text); }
-footer a { text-decoration: underline; text-underline-offset: 3px; }
 
 .profile-link {
   color: inherit;
