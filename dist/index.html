@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#101115">
-<meta name="description" content="Программа и результаты гонок СХБИАТЛОН в Антхольце.">
-<title>Антхольц — СХБИАТЛОН</title>
+<meta name="theme-color" content="#091725">
+<meta name="description" content="Программа этапов и результаты гонок СХБИАТЛОН.">
+<title>СХБИАТЛОН — этапы и результаты</title>
 <link rel="stylesheet" href="style.css">
 <script defer src="data.js"></script>
 <script defer src="app.js"></script>
@@ -13,26 +13,79 @@
 <body>
 <header class="mast">
  <div class="wrap mast-inner">
-  <div class="brand"><span class="target" aria-hidden="true"></span> СХБИАТЛОН</div>
-  <h1>Антхольц<span>.</span></h1>
-  <p>Программа и результаты этапа</p>
+  <div class="mast-top">
+   <p class="mast-meta">Программа этапов · Результаты гонок</p>
+   <button class="theme-button" id="theme-button" type="button" aria-pressed="false">Светлая тема</button>
+  </div>
+  <h1>СХБИАТЛОН</h1>
+  <dl class="kpi-grid" id="season-summary" aria-label="Сводка"></dl>
  </div>
 </header>
-<nav class="race-nav" aria-label="Выбор гонки"><div class="wrap nav-inner" id="race-nav"></div></nav>
-<main class="wrap" id="main">
- <noscript>Для просмотра результатов включите JavaScript.</noscript>
- <div class="race-heading"><div><div class="eyebrow" id="race-number"></div><h2 id="race-title"></h2></div><span class="status" id="race-status"></span></div>
- <div id="overview"></div>
- <section class="panel protocol" id="protocol" aria-labelledby="protocol-title">
-  <div class="panel-heading protocol-head"><div><h3 id="protocol-title">Финишный протокол</h3><p id="row-count" aria-live="polite"></p></div>
-   <label class="search"><span class="sr-only">Имя или страна</span><input id="search" type="search" placeholder="Имя или страна"></label>
+<nav class="site-nav" aria-label="Разделы сайта">
+ <div class="wrap nav-inner">
+  <a href="#overall" data-section="overall">Результаты гонок</a>
+  <a href="#nations" data-section="nations">Лига Наций</a>
+  <a href="#stages" data-section="stages">Результаты по этапам</a>
+ </div>
+</nav>
+<noscript class="wrap">Для просмотра результатов включите JavaScript.</noscript>
+<main>
+<section class="wrap standings" id="standings" aria-labelledby="standings-title" hidden>
+ <section class="panel">
+  <div class="panel-heading">
+   <h2 id="standings-title"></h2>
+   <label class="search"><span>Поиск в зачёте</span><input id="standings-search" type="search" placeholder="Имя или страна"></label>
   </div>
-  <div class="table-scroll" tabindex="0" role="region" aria-label="Таблица результатов">
+  <div id="nations-results" hidden>
+   <p class="scroll-hint" id="standings-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все столбцы.</p>
+   <div class="table-scroll" tabindex="0" role="region" aria-labelledby="standings-title" aria-describedby="standings-scroll-hint">
+    <table><thead><tr><th scope="col" aria-label="Место">№</th><th scope="col">Страна</th><th scope="col">Гонки</th><th scope="col">Очки</th></tr></thead><tbody id="standings-rows"></tbody></table>
+   </div>
+  </div>
+  <div id="season-race-results" hidden>
+   <p class="scroll-hint" id="season-race-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все гонки.</p>
+   <div class="table-scroll" tabindex="0" role="region" aria-labelledby="standings-title" aria-describedby="season-race-scroll-hint">
+    <table class="race-results-table"><colgroup span="7"></colgroup><thead id="season-race-columns"></thead><tbody id="season-race-rows"></tbody></table>
+   </div>
+  </div>
+  <p class="empty" id="standings-empty" hidden>Очки появятся после публикации протоколов гонок.</p>
+  <p class="empty" id="standings-no-match" hidden>По вашему запросу ничего не найдено.</p>
+ </section>
+</section>
+<section class="wrap stage-detail" id="stage-results" aria-label="Результаты по этапам" hidden>
+<div class="stage-toolbar">
+<div class="stage-picker">
+ <div class="race-field"><label for="stage-select" class="eyebrow">Этап</label><select id="stage-select"></select></div>
+ <div class="race-field"><label for="race-select" class="eyebrow">Гонка</label><select id="race-select"></select></div>
+</div>
+<div id="race-views">
+ <div class="race-views" role="group" aria-label="Вид результатов гонки">
+  <button type="button" data-view="finish" aria-pressed="true">Общий результат</button>
+  <button type="button" data-view="ski" aria-pressed="false">Лыжный ход</button>
+  <button type="button" data-view="shoot" aria-pressed="false">Стрельба</button>
+ </div>
+</div>
+</div>
+ <p class="panel empty-race" id="race-empty" role="status" hidden></p>
+ <section class="panel protocol" id="protocol" aria-labelledby="protocol-title">
+  <div class="panel-heading"><h2 id="protocol-title">Финишный протокол</h2>
+   <label class="search"><span>Поиск в протоколе</span><input id="search" type="search" placeholder="Имя или страна"></label>
+  </div>
+  <p class="scroll-hint" id="race-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все столбцы.</p>
+  <div class="table-scroll" tabindex="0" role="region" aria-labelledby="protocol-title" aria-describedby="race-scroll-hint">
   <table><thead id="columns"></thead><tbody id="rows"></tbody></table>
   </div>
   <p class="empty" id="no-match" hidden>По вашему запросу никого не найдено.</p>
  </section>
+</section>
 </main>
+<dialog class="profile" id="profile" aria-labelledby="profile-title">
+ <header class="profile-header">
+  <div><h2 id="profile-title"></h2><div id="profile-subtitle"></div></div>
+  <form method="dialog"><button class="profile-close" type="submit" aria-label="Закрыть" autofocus>×</button></form>
+ </header>
+ <div class="profile-body" id="profile-body"></div>
+</dialog>
 <footer class="wrap"><span>#СХБИАТЛОН</span><a href="https://docs.google.com/spreadsheets/d/1KloxtYkffp7uAua6J3q4vwwSP2wAH-2YrwFWhX0dOTo/edit?gid=1291266509#gid=1291266509" target="_blank" rel="noopener">Источник данных ↗</a></footer>
 </body>
 </html>
