@@ -25,52 +25,101 @@ const countryCell = (code, showName = false) => {
 };
 const search = byId("search");
 const standingsSearch = byId("standings-search");
+const standingsRaceSelect = byId("standings-race-select");
 const normalizeSearch = value => value.toLocaleLowerCase("ru").trim().replaceAll("ё", "е");
 const matchesSearch = (row, query) =>
   normalizeSearch(row.name + " " + row.country + " " + countryName(row.country)).includes(query);
 const stageSelect = byId("stage-select");
-const stages = new Map();
-for (const race of races) {
-  if (!stages.has(race.venue)) stages.set(race.venue, []);
-  stages.get(race.venue).push(race);
-}
+let stages;
 const raceHash = race => "#race-" + race.id;
-stageSelect.innerHTML = [...stages.keys()].map(venue =>
-  '<option value="' + escapeText(venue) + '">' + escapeText(venue) + '</option>'
-).join("");
 let current;
 let activeSection;
+let races, pointsByPlace, countriesByCode, completedRaces;
 const raceAbbreviations = new Map([
   ["Спринт", "С"],
   ["Гонка преследования", "ГП"],
   ["Индивидуальная гонка", "ИГ"],
   ["Масс-старт", "МС"]
 ]);
+const raceAbbreviation = name => raceAbbreviations.get(name) ??
+  name.trim().split(/[\s-]+/).map(word => word.charAt(0)).join("").toLocaleUpperCase("ru");
 const seasonRaceColumns = byId("season-race-columns");
-seasonRaceColumns.closest("table").style.setProperty("--race-count", races.length);
-seasonRaceColumns.insertAdjacentHTML("beforebegin", [...stages.values()].map(stageRaces =>
-  '<colgroup><col class="race-finish-column" span="' + stageRaces.length + '"></colgroup>'
-).join(""));
-const raceStageHeaders = [...stages].map(([venue, stageRaces]) =>
+
+function groupRacesByStage(calendar) {
+  const groups = new Map();
+  for (const race of calendar) {
+    if (!groups.has(race.venue)) groups.set(race.venue, []);
+    groups.get(race.venue).push(race);
+  }
+  return groups;
+}
+
+function updateSeasonData(data) {
+  ({ races, pointsByPlace, countriesByCode } = data);
+  stages = groupRacesByStage(races);
+  stageSelect.innerHTML = [...stages.keys()].map(venue =>
+    '<option value="' + escapeText(venue) + '">' + escapeText(venue) + '</option>'
+  ).join("");
+  const selectedRace = standingsRaceSelect.value;
+  standingsRaceSelect.innerHTML = '<option value="">Текущий зачёт</option>' + races.map(race =>
+    '<option value="' + race.id + '">' + escapeText(race.venue + " - " + race.name) + '</option>'
+  ).join("");
+  standingsRaceSelect.value = races.some(race => String(race.id) === selectedRace) ? selectedRace : "";
+  standingsRaceSelect.disabled = !races.length;
+
+  const entries = races.flatMap(race => race.entries);
+  completedRaces = races.filter(race => race.entries.length > 0);
+  byId("season-summary").innerHTML = [
+    ["Этапы", stages.size],
+    ["Гонки", completedRaces.length],
+    ["Участники", new Set(entries.map(athleteKey)).size],
+    ["Страны", new Set(entries.map(row => row.country)).size]
+  ].map(([label, value]) => '<div><dt>' + label + '</dt><dd>' + value + '</dd></div>').join("");
+  renderPage();
+}
+
+function getStandingsRaces() {
+  const index = races.findIndex(race => String(race.id) === standingsRaceSelect.value);
+  return index < 0 ? races : races.slice(0, index + 1);
+}
+
+function renderStandingsRaceColumns(raceGroups, raceCount) {
+  const seasonTable = seasonRaceColumns.closest("table");
+  seasonTable.style.setProperty("--race-count", raceCount);
+  for (const group of seasonTable.querySelectorAll(".season-race-group")) group.remove();
+  seasonRaceColumns.insertAdjacentHTML("beforebegin", [...raceGroups.values()].map(stageRaces =>
+    '<colgroup class="season-race-group"><col class="race-finish-column" span="' + stageRaces.length + '"></colgroup>'
+  ).join(""));
+  return [...raceGroups].map(([venue, stageRaces]) =>
     '<th scope="colgroup" class="race-result race-stage-start" colspan="' + stageRaces.length + '">' +
     '<span class="race-stage-name" title="' + escapeText(venue) + '">' + escapeText(venue) + '</span></th>'
   ).join("") + '</tr><tr>' +
-  [...stages.values()].flatMap(stageRaces => stageRaces.map((race, index) => {
-    const abbreviation = raceAbbreviations.get(race.name) ??
-      race.name.trim().split(/[\s-]+/).map(word => word.charAt(0)).join("").toLocaleUpperCase("ru");
-    return '<th scope="col" class="race-result' + (index === 0 ? ' race-stage-start' : '') +
-      '" aria-label="' + escapeText(race.venue + " — " + race.name) + '" title="' +
-      escapeText(race.name) + '">' + escapeText(abbreviation) + '</th>';
-  })).join("") + '</tr>';
+    [...raceGroups.values()].flatMap(stageRaces => stageRaces.map((race, index) => {
+      const abbreviation = raceAbbreviation(race.name);
+      return '<th scope="col" class="race-result' + (index === 0 ? ' race-stage-start' : '') +
+        '" aria-label="' + escapeText(race.venue + " — " + race.name) + '" title="' +
+        escapeText(race.name) + '">' + escapeText(abbreviation) + '</th>';
+    })).join("") + '</tr>';
+}
 
-const entries = races.flatMap(race => race.entries);
-const completedRaces = races.filter(race => race.entries.length > 0);
-byId("season-summary").innerHTML = [
-  ["Этапы", stages.size],
-  ["Гонки", completedRaces.length],
-  ["Участники", new Set(entries.map(athleteKey)).size],
-  ["Страны", new Set(entries.map(row => row.country)).size]
-].map(([label, value]) => '<div><dt>' + label + '</dt><dd>' + value + '</dd></div>').join("");
+const refreshButton = byId("refresh-data");
+const refreshStatus = byId("refresh-status");
+refreshButton.hidden = false;
+async function refreshSeasonData(showConfirmation = false) {
+  if (refreshButton.disabled) return;
+  refreshButton.disabled = true;
+  refreshStatus.textContent = "Загружаем данные из Google Таблицы…";
+  try {
+    updateSeasonData(await loadSeasonData());
+    refreshStatus.textContent = showConfirmation ? "Данные обновлены." : "";
+  } catch (error) {
+    console.error(error);
+    refreshStatus.textContent = "Не удалось загрузить данные из Google Таблицы. Попробуйте ещё раз.";
+  } finally {
+    refreshButton.disabled = false;
+  }
+}
+refreshButton.addEventListener("click", () => refreshSeasonData(true));
 
 const themeButton = byId("theme-button");
 function setTheme(light) {
@@ -103,22 +152,32 @@ function getRaceScores(race, byNation) {
   return raceScores;
 }
 
-function getStandings(byNation, countedRaces = races) {
+function compareStandings(a, b) {
+  if (a.points !== b.points) return b.points - a.points;
+  for (let index = 0; index < Math.min(a.finishes.length, b.finishes.length); index++) {
+    if (a.finishes[index] !== b.finishes[index]) return a.finishes[index] - b.finishes[index];
+  }
+  return b.finishes.length - a.finishes.length;
+}
+
+function getStandings(byNation, countedRaces) {
   const totals = new Map();
   for (const race of countedRaces) {
     for (const [key, score] of getRaceScores(race, byNation)) {
-      if (!totals.has(key)) totals.set(key, { ...score, key, points: 0, races: 0 });
+      if (!totals.has(key)) totals.set(key, { ...score, key, points: 0, finishes: [] });
       const total = totals.get(key);
       total.points += score.points;
-      total.races += 1;
+      total.finishes.push(score.finish);
     }
   }
-  const scores = [...totals.values()].sort((a, b) =>
-    b.points - a.points || a.name.localeCompare(b.name, "ru") || a.country.localeCompare(b.country)
+  const scores = [...totals.values()];
+  for (const score of scores) score.finishes.sort((a, b) => a - b);
+  scores.sort((a, b) =>
+    compareStandings(a, b) || a.name.localeCompare(b.name, "ru") || a.country.localeCompare(b.country)
   );
   let rank = 0;
   return scores.map((row, index) => {
-    if (!index || row.points !== scores[index - 1].points) rank = index + 1;
+    if (!index || compareStandings(row, scores[index - 1])) rank = index + 1;
     return { ...row, rank };
   });
 }
@@ -129,27 +188,35 @@ function finishBadge(place) {
   return '<span class="finish-place finish-' + tone + '">' + place + '</span>';
 }
 
+const prizeByPlace = [60, 55, 50, 40, 40, 40, 35, 35, 35, 35, 30, 30, 30, 30, 30];
+
 function renderStandings(byNation) {
-  const scores = getStandings(byNation);
+  const countedRaces = getStandingsRaces();
+  const raceGroups = countedRaces === races ? stages : groupRacesByStage(countedRaces);
+  const scores = getStandings(byNation, countedRaces);
   const query = normalizeSearch(standingsSearch.value);
-  const raceScores = [...stages.values()].flatMap(stageRaces =>
+  const raceScores = [...raceGroups.values()].flatMap(stageRaces =>
     stageRaces.map((race, index) => ({
       scores: getRaceScores(race, byNation),
       stageStart: index === 0
     }))
   );
+  const priorRaces = (countedRaces === races ? completedRaces : countedRaces).slice(0, -1);
   const previousRanks = new Map(
-    getStandings(byNation, completedRaces.slice(0, -1)).map(row => [row.key, row.rank])
+    getStandings(byNation, priorRaces).map(row => [row.key, row.rank])
   );
+  const raceStageHeaders = renderStandingsRaceColumns(raceGroups, countedRaces.length);
   seasonRaceColumns.closest("table").classList.toggle("nations-table", byNation);
   byId("standings-base-columns").innerHTML = '<col class="race-rank-column"><col class="race-movement-column"><col>' +
     (byNation ? '' : '<col class="race-country-column">') +
-    '<col class="race-points-column"><col class="race-gap-column" span="2"><col class="race-best-column">';
+    '<col class="race-points-column"><col class="race-gap-column" span="2">' +
+    (byNation ? '' : '<col class="race-prize-column">') + '<col class="race-best-column">';
   seasonRaceColumns.innerHTML = '<tr><th scope="col" rowspan="2" aria-label="Место">Номер</th>' +
     '<th scope="col" rowspan="2" aria-label="Изменение места">±</th>' +
     (byNation ? ["Страна", "Очки"] : ["Участник", "Страна", "Очки"])
       .map(label => '<th scope="col" rowspan="2">' + label + '</th>').join("") +
     '<th scope="col" rowspan="2" colspan="2" class="race-result">ОТСТАВАНИЕ</th>' +
+    (byNation ? '' : '<th scope="col" rowspan="2" class="race-result">Призовые</th>') +
     '<th scope="col" rowspan="2" class="race-result">Лучший<br>финиш</th>' + raceStageHeaders;
   byId("standings-title").textContent = byNation ? "Лига Наций" : "Результаты гонок";
   standingsSearch.placeholder = byNation ? "Название страны" : "Имя или страна";
@@ -165,6 +232,8 @@ function renderStandings(byNation) {
     const previousGap = index ? row.points - scores[index - 1].points : "—";
     const finishes = raceScores.map(({ scores, stageStart }) => ({ place: scores.get(row.key)?.finish, stageStart }));
     const bestFinish = Math.min(...finishes.map(({ place }) => place ?? Infinity));
+    const prizeCell = byNation ? '' : '<td class="num race-result">' +
+      finishes.reduce((sum, { place }) => place == null ? sum : sum + (prizeByPlace[place - 1] ?? 25), 0) + '$</td>';
     const summary = '<tr><td><span class="place p' + row.rank + '">' + row.rank + '</span></td>' +
       '<td class="num' + movementClass + '" aria-label="' +
       (change == null ? "Нет предыдущего места" : change > 0 ? "+" + change : change) + '">' + movement + '</td>' +
@@ -173,6 +242,7 @@ function renderStandings(byNation) {
       '<td class="num points"><strong>' + row.points + '</strong></td>' +
       '<td class="num race-result"><span class="sr-only">До лидера: </span>' + leaderGap + '</td>' +
       '<td class="num race-result"><span class="sr-only">До предыдущего: </span>' + previousGap + '</td>' +
+      prizeCell +
       '<td class="num race-result">' + finishBadge(bestFinish) + '</td>';
     return summary + finishes.map(({ place, stageStart }) => {
       const classes = 'num race-result' + (stageStart ? ' race-stage-start' : '');
@@ -223,7 +293,7 @@ const placeLabel = rank => rank == null ? "—" : "#" + rank;
 function profileChart(history, byNation) {
   const width = 640;
   const left = 38;
-  const right = 618;
+  const right = 602;
   const top = 20;
   const bottom = 160;
   const maxRank = Math.max(2, ...history.map(item => item.rank ?? 1));
@@ -244,9 +314,11 @@ function profileChart(history, byNation) {
     '<svg viewBox="0 0 ' + width + ' 190" role="group" aria-label="' + title + '">' +
     ticks.map(rank => '<line x1="' + left + '" x2="' + right + '" y1="' + y(rank) + '" y2="' + y(rank) +
       '"/><text x="28" y="' + (y(rank) + 4) + '" text-anchor="end">' + rank + '</text>').join("") +
-    points.filter(item => (item.number - 1) % labelStep === 0).map(item =>
-      '<line x1="' + item.x + '" x2="' + item.x + '" y1="' + top + '" y2="' + bottom +
-      '"/><text x="' + item.x + '" y="181" text-anchor="middle">' + item.number + '</text>').join("") +
+    points.filter(item => (item.number - 1) % labelStep === 0).map(({ race, x }) => {
+      const label = race.venue.slice(0, 3).toLocaleUpperCase("ru") + " · " + raceAbbreviation(race.name);
+      return '<line x1="' + x + '" x2="' + x + '" y1="' + top + '" y2="' + bottom +
+        '"/><text x="' + x + '" y="181" text-anchor="middle">' + escapeText(label) + '</text>';
+    }).join("") +
     '<polyline points="' + ranked.map(item => item.x + "," + y(item.rank)).join(" ") + '"/>' +
     ranked.map(item => {
       const race = escapeText(item.race.venue + " · " + item.race.name);
@@ -289,23 +361,24 @@ function enableChartTooltips(chart) {
 
 function openProfile(kind, key) {
   const byNation = kind === "nation";
-  const total = getStandings(byNation).find(row => row.key === key);
+  const profileRaces = activeSection === "stages" ? completedRaces : getStandingsRaces().filter(race => race.entries.length);
+  const total = getStandings(byNation, profileRaces).find(row => row.key === key);
   if (!total) return;
   let runningPoints = 0;
-  const history = completedRaces.map((race, index) => {
+  const history = profileRaces.map((race, index) => {
     const score = getRaceScores(race, byNation).get(key);
-    const rank = getStandings(byNation, completedRaces.slice(0, index + 1)).find(row => row.key === key)?.rank;
+    const rank = getStandings(byNation, profileRaces.slice(0, index + 1)).find(row => row.key === key)?.rank;
     runningPoints += score?.points ?? 0;
     return { race, score, rank, runningPoints };
   });
   const starts = history.filter(item => item.score);
-  const best = Math.min(...starts.map(item => item.score.finish));
-  const athletes = new Map(entries.filter(row => row.country === total.country).map(row => [athleteKey(row), row]));
+  const athletes = new Map(profileRaces.flatMap(race => race.entries)
+    .filter(row => row.country === total.country).map(row => [athleteKey(row), row]));
   const metrics = [
     ["Место", placeLabel(total.rank)],
     ["Очки", total.points],
-    ["Гонки", total.races + " / " + completedRaces.length],
-    ["Лучший финиш", placeLabel(best)],
+    ["Гонки", total.finishes.length + " / " + profileRaces.length],
+    ["Лучший финиш", placeLabel(total.finishes[0])],
     ["Победы", starts.filter(item => item.score.finish === 1).length],
     byNation ? ["Участники", athletes.size] : ["Средний финиш",
       profileNumber.format(starts.reduce((sum, item) => sum + item.score.finish, 0) / starts.length)]
@@ -414,7 +487,8 @@ function renderRaceView() {
 
 function renderRace() {
   const previous = current;
-  current = races.find(race => location.hash === raceHash(race)) || current || races[0];
+  current = races.find(race => location.hash === raceHash(race)) ||
+    races.find(race => race.id === previous?.id) || races[0];
   if (!current) {
     stageSelect.disabled = raceSelect.disabled = true;
     byId("race-views").hidden = true;
@@ -423,20 +497,23 @@ function renderRace() {
     byId("race-empty").textContent = "Программа этапов пока пуста.";
     return;
   }
+  stageSelect.disabled = raceSelect.disabled = false;
+  byId("race-views").hidden = false;
   const stageRaces = stages.get(current.venue);
   stageSelect.value = current.venue;
-  if (previous?.venue !== current.venue) {
+  if (previous !== current) {
     raceSelect.innerHTML = stageRaces.map(race =>
       '<option value="' + race.id + '">' + escapeText(race.name) + '</option>'
     ).join("");
   }
   raceSelect.value = String(current.id);
-  if (previous !== current) search.value = "";
+  if (previous?.id !== current.id) search.value = "";
   renderRaceView();
 }
 
 search.addEventListener("input", renderTable);
 standingsSearch.addEventListener("input", () => renderStandings(activeSection === "nations"));
+standingsRaceSelect.addEventListener("change", () => renderStandings(activeSection === "nations"));
 stageSelect.addEventListener("change", () => {
   const [firstRace] = stages.get(stageSelect.value);
   location.hash = raceHash(firstRace);
@@ -462,4 +539,5 @@ for (const scroll of document.querySelectorAll(".table-scroll")) {
   tableObserver.observe(scroll);
   tableObserver.observe(scroll.querySelector("table"));
 }
-renderPage();
+updateSeasonData({ races: [], pointsByPlace: [], countriesByCode: {} });
+refreshSeasonData();

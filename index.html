@@ -15,9 +15,13 @@
  <div class="wrap mast-inner">
   <div class="mast-top">
    <p class="mast-meta">Программа этапов · Результаты гонок</p>
-   <button class="theme-button" id="theme-button" type="button" aria-pressed="false">Светлая тема</button>
+   <div class="mast-actions">
+    <button class="refresh-button" id="refresh-data" type="button" hidden>Обновить данные</button>
+    <button class="theme-button" id="theme-button" type="button" aria-pressed="false">Светлая тема</button>
+   </div>
   </div>
   <h1>СХБИАТЛОН</h1>
+  <p class="refresh-status" id="refresh-status" role="status"></p>
   <dl class="kpi-grid" id="season-summary" aria-label="Сводка"></dl>
  </div>
 </header>
@@ -34,7 +38,10 @@
  <section class="panel">
   <div class="panel-heading">
    <h2 id="standings-title"></h2>
-   <label class="search"><span>Поиск в зачёте</span><input id="standings-search" type="search" placeholder="Имя или страна"></label>
+   <div class="standings-controls">
+    <label class="search"><span>Зачёт после гонки</span><select id="standings-race-select" disabled></select></label>
+    <label class="search"><span>Поиск в зачёте</span><input id="standings-search" type="search" placeholder="Имя или страна"></label>
+   </div>
   </div>
   <div>
    <p class="scroll-hint" id="season-race-scroll-hint" hidden>Прокрутите таблицу вправо, чтобы увидеть все гонки.</p>
@@ -82,6 +89,9 @@
  </header>
  <div class="profile-body" id="profile-body"></div>
 </dialog>
-<footer class="wrap"><span>#СХБИАТЛОН</span></footer>
+<footer class="wrap">
+ <span>#СХБИАТЛОН</span>
+ <a href="https://docs.google.com/document/d/1BC-CIIv2Qd9k8cwWjJigrXUQg1wvAYcgPozIMFE6mBw/edit?tab=t.0">Регламент</a>
+</footer>
 </body>
 </html>
