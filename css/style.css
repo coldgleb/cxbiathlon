@@ -203,9 +203,9 @@ input::placeholder { color: var(--muted); }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .panel-heading h2 { font: 700 22px var(--display); text-transform: uppercase; }
 .search { display: grid; gap: 4px; color: var(--muted); font-size: 13px; font-weight: 600; }
-.standings-controls { display: flex; flex-wrap: wrap; gap: 10px; min-width: 0; max-width: 100%; }
-.standings-controls .search { min-width: 0; max-width: 100%; }
-#standings-race-select { width: 300px; }
+.standings-controls { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); align-items: end; gap: 12px; width: min(100%, 552px); margin-inline-start: auto; }
+.standings-controls .search { min-width: 0; }
+.standings-controls :is(select, input) { width: 100%; min-width: 0; }
 .scroll-hint { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
 .table-scroll { width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
 table { border-collapse: separate; border-spacing: 0; width: 100%; font: 600 14px/1.4 var(--display); text-align: left; font-variant-numeric: tabular-nums; }
@@ -359,7 +359,7 @@ body:has(.profile[open]) { overflow: hidden; }
   .panel { padding: 14px 12px; }
   .panel-heading h2 { font-size: 18px; }
   .search, input[type="search"] { width: 100%; }
-  .standings-controls, #standings-race-select { width: 100%; }
+  .standings-controls { grid-template-columns: minmax(0, 1fr); width: 100%; }
   .nav-inner, .race-views { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .nav-inner a, .race-views button { padding-inline: 4px; font-size: 14px; white-space: normal; line-height: 1.2; letter-spacing: 0; }
   .stage-picker { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); width: 100%; gap: 8px; }
