@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#091725">
 <meta name="description" content="Программа этапов и результаты гонок СХБИАТЛОН.">
 <title>СХБИАТЛОН — этапы и результаты</title>
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 <script defer src="js/data.js?v=2"></script>
-<script defer src="js/app.js?v=3"></script>
+<script defer src="js/app.js?v=4"></script>
 </head>
 <body>
 <header class="mast">
@@ -16,7 +16,6 @@
   <div class="mast-top">
    <p class="mast-meta">Программа этапов · Результаты гонок</p>
    <div class="mast-actions">
-    <button class="mast-button" id="refresh-data" type="button" hidden>Обновить данные</button>
     <button class="mast-button" id="wide-results-button" type="button" aria-pressed="false" aria-controls="standings stage-results" hidden>На всю ширину</button>
     <button class="theme-button" id="theme-button" type="button" aria-pressed="false">Светлая тема</button>
    </div>
@@ -43,8 +42,8 @@
     <label class="search">
      <span>Зачёт после гонки</span>
      <span class="standings-race-field">
-      <select id="standings-race-select" disabled><option value="">Текущий зачёт</option></select>
-      <span class="standings-race-label" id="standings-race-label" aria-hidden="true">Текущий зачёт</span>
+      <select id="standings-race-select" disabled><option value="">Нет проведённых гонок</option></select>
+      <span class="standings-race-label" id="standings-race-label" aria-hidden="true">Нет проведённых гонок</span>
      </span>
     </label>
     <label class="search"><span>Поиск в зачёте</span><input id="standings-search" type="search" placeholder="Имя или страна"></label>

@@ -38,7 +38,8 @@ let stages;
 const raceHash = race => "#race-" + race.id;
 let current;
 let activeSection;
-let races, pointsByPlace, countriesByCode, completedRaces;
+let races, pointsByPlace, countriesByCode;
+let completedRaces = [];
 const raceAbbreviations = new Map([
   ["Спринт", "С"],
   ["Гонка преследования", "ГП"],
@@ -59,21 +60,23 @@ function groupRacesByStage(calendar) {
 }
 
 function updateSeasonData(data) {
+  const selectedRace = standingsRaceSelect.value;
+  const wasLatest = selectedRace === String(completedRaces.at(-1)?.id);
   ({ races, pointsByPlace, countriesByCode } = data);
+  completedRaces = races.filter(race => race.entries.length > 0);
   stages = groupRacesByStage(races);
   stageSelect.innerHTML = [...stages.keys()].map(venue =>
     '<option value="' + escapeText(venue) + '">' + escapeText(venue) + '</option>'
   ).join("");
-  const selectedRace = standingsRaceSelect.value;
-  standingsRaceSelect.innerHTML = '<option value="">Текущий зачёт</option>' + races.map(race =>
+  standingsRaceSelect.innerHTML = completedRaces.map(race =>
     '<option value="' + race.id + '">' + escapeText(race.venue + " - " + race.name) + '</option>'
-  ).join("");
-  standingsRaceSelect.value = races.some(race => String(race.id) === selectedRace) ? selectedRace : "";
-  standingsRaceSelect.disabled = !races.length;
+  ).join("") || '<option value="">Нет проведённых гонок</option>';
+  const keepSelection = !wasLatest && completedRaces.some(race => String(race.id) === selectedRace);
+  standingsRaceSelect.value = keepSelection ? selectedRace : String(completedRaces.at(-1)?.id ?? "");
+  standingsRaceSelect.disabled = !completedRaces.length;
   showSelectedStandingsRace();
 
   const entries = races.flatMap(race => race.entries);
-  completedRaces = races.filter(race => race.entries.length > 0);
   byId("season-summary").innerHTML = [
     ["Этапы", stages.size],
     ["Гонки", completedRaces.length],
@@ -84,8 +87,8 @@ function updateSeasonData(data) {
 }
 
 function getStandingsRaces() {
-  const index = races.findIndex(race => String(race.id) === standingsRaceSelect.value);
-  return index < 0 ? races : races.slice(0, index + 1);
+  const index = completedRaces.findIndex(race => String(race.id) === standingsRaceSelect.value);
+  return index < 0 ? completedRaces : completedRaces.slice(0, index + 1);
 }
 
 function renderStandingsRaceColumns(raceGroups, raceCount) {
@@ -107,24 +110,45 @@ function renderStandingsRaceColumns(raceGroups, raceCount) {
     })).join("") + '</tr>';
 }
 
-const refreshButton = byId("refresh-data");
 const refreshStatus = byId("refresh-status");
-refreshButton.hidden = false;
-async function refreshSeasonData(showConfirmation = false) {
-  if (refreshButton.disabled) return;
-  refreshButton.disabled = true;
-  refreshStatus.textContent = "Загружаем данные из Google Таблицы…";
+const seasonCacheKey = "cxbiathlon-season-v1";
+const seasonCacheLifetime = 60 * 60 * 1000;
+let refreshTimer;
+let refreshing = false;
+
+function readSeasonCache() {
   try {
-    updateSeasonData(await loadSeasonData());
-    refreshStatus.textContent = showConfirmation ? "Данные обновлены." : "";
+    const cache = JSON.parse(localStorage.getItem(seasonCacheKey));
+    if (Number.isFinite(cache?.savedAt) && cache.savedAt <= Date.now() &&
+        Array.isArray(cache.data?.races) && Array.isArray(cache.data.pointsByPlace) &&
+        cache.data.countriesByCode && typeof cache.data.countriesByCode === "object") return cache;
+  } catch {}
+}
+
+async function refreshSeasonData() {
+  if (refreshing) return;
+  clearTimeout(refreshTimer);
+  refreshing = true;
+  if (!races.length) refreshStatus.textContent = "Загружаем данные из Google Таблицы…";
+  try {
+    const data = await loadSeasonData();
+    updateSeasonData(data);
+    try { localStorage.setItem(seasonCacheKey, JSON.stringify({ savedAt: Date.now(), data })); } catch {}
+    refreshStatus.textContent = "";
   } catch (error) {
     console.error(error);
-    refreshStatus.textContent = "Не удалось загрузить данные из Google Таблицы. Попробуйте ещё раз.";
+    refreshStatus.textContent = "Не удалось обновить данные из Google Таблицы.";
   } finally {
-    refreshButton.disabled = false;
+    refreshing = false;
+    refreshTimer = setTimeout(refreshSeasonData, seasonCacheLifetime);
   }
 }
-refreshButton.addEventListener("click", () => refreshSeasonData(true));
+
+window.addEventListener("keydown", event => {
+  if (!event.ctrlKey || event.key !== "F5") return;
+  event.preventDefault();
+  if (!event.repeat) refreshSeasonData();
+}, { capture: true });
 
 const themeButton = byId("theme-button");
 function setTheme(light) {
@@ -214,7 +238,7 @@ const prizeByPlace = [60, 55, 50, 40, 40, 40, 35, 35, 35, 35, 30, 30, 30, 30, 30
 
 function renderStandings(byNation) {
   const countedRaces = getStandingsRaces();
-  const raceGroups = countedRaces === races ? stages : groupRacesByStage(countedRaces);
+  const raceGroups = groupRacesByStage(countedRaces);
   const scores = getStandings(byNation, countedRaces);
   const query = normalizeSearch(standingsSearch.value);
   const raceScores = [...raceGroups.values()].flatMap(stageRaces =>
@@ -223,9 +247,8 @@ function renderStandings(byNation) {
       stageStart: index === 0
     }))
   );
-  const priorRaces = (countedRaces === races ? completedRaces : countedRaces).slice(0, -1);
   const previousRanks = new Map(
-    getStandings(byNation, priorRaces).map(row => [row.key, row.rank])
+    getStandings(byNation, countedRaces.slice(0, -1)).map(row => [row.key, row.rank])
   );
   const raceStageHeaders = renderStandingsRaceColumns(raceGroups, countedRaces.length);
   seasonRaceColumns.closest("table").classList.toggle("nations-table", byNation);
@@ -383,7 +406,7 @@ function enableChartTooltips(chart) {
 
 function openProfile(kind, key) {
   const byNation = kind === "nation";
-  const profileRaces = activeSection === "stages" ? completedRaces : getStandingsRaces().filter(race => race.entries.length);
+  const profileRaces = activeSection === "stages" ? completedRaces : getStandingsRaces();
   const total = getStandings(byNation, profileRaces).find(row => row.key === key);
   if (!total) return;
   let runningPoints = 0;
@@ -564,5 +587,10 @@ for (const scroll of document.querySelectorAll(".table-scroll")) {
   tableObserver.observe(scroll);
   tableObserver.observe(scroll.querySelector("table"));
 }
-updateSeasonData({ races: [], pointsByPlace: [], countriesByCode: {} });
-refreshSeasonData();
+const seasonCache = readSeasonCache();
+updateSeasonData(seasonCache?.data ?? { races: [], pointsByPlace: [], countriesByCode: {} });
+const cacheTimeLeft = seasonCache ? seasonCacheLifetime - (Date.now() - seasonCache.savedAt) : 0;
+// Some browsers handle Ctrl+F5 before the page receives the key event.
+const browserReload = performance.getEntriesByType("navigation")[0]?.type === "reload";
+if (browserReload || cacheTimeLeft <= 0) refreshSeasonData();
+else refreshTimer = setTimeout(refreshSeasonData, cacheTimeLeft);
