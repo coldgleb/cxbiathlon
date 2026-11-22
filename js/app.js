@@ -26,6 +26,10 @@ const countryCell = (code, showName = false) => {
 const search = byId("search");
 const standingsSearch = byId("standings-search");
 const standingsRaceSelect = byId("standings-race-select");
+const standingsRaceLabel = byId("standings-race-label");
+function showSelectedStandingsRace() {
+  standingsRaceLabel.textContent = standingsRaceSelect.selectedOptions[0].textContent;
+}
 const normalizeSearch = value => value.toLocaleLowerCase("ru").trim().replaceAll("ё", "е");
 const matchesSearch = (row, query) =>
   normalizeSearch(row.name + " " + row.country + " " + countryName(row.country)).includes(query);
@@ -66,6 +70,7 @@ function updateSeasonData(data) {
   ).join("");
   standingsRaceSelect.value = races.some(race => String(race.id) === selectedRace) ? selectedRace : "";
   standingsRaceSelect.disabled = !races.length;
+  showSelectedStandingsRace();
 
   const entries = races.flatMap(race => race.entries);
   completedRaces = races.filter(race => race.entries.length > 0);
@@ -137,6 +142,23 @@ themeButton.addEventListener("click", () => {
   setTheme(light);
   try { localStorage.setItem("cxbiathlon-theme", light ? "light" : "dark"); } catch {}
 });
+
+const wideResultsButton = byId("wide-results-button");
+function setWideResults(wide) {
+  document.documentElement.dataset.wideResults = String(wide);
+  wideResultsButton.setAttribute("aria-pressed", String(wide));
+}
+try {
+  setWideResults(localStorage.getItem("cxbiathlon-wide-results") === "true");
+} catch {
+  setWideResults(false);
+}
+wideResultsButton.addEventListener("click", () => {
+  const wide = document.documentElement.dataset.wideResults !== "true";
+  setWideResults(wide);
+  try { localStorage.setItem("cxbiathlon-wide-results", String(wide)); } catch {}
+});
+wideResultsButton.hidden = false;
 
 function getRaceScores(race, byNation) {
   const raceScores = new Map();
@@ -513,7 +535,10 @@ function renderRace() {
 
 search.addEventListener("input", renderTable);
 standingsSearch.addEventListener("input", () => renderStandings(activeSection === "nations"));
-standingsRaceSelect.addEventListener("change", () => renderStandings(activeSection === "nations"));
+standingsRaceSelect.addEventListener("change", () => {
+  showSelectedStandingsRace();
+  renderStandings(activeSection === "nations");
+});
 stageSelect.addEventListener("change", () => {
   const [firstRace] = stages.get(stageSelect.value);
   location.hash = raceHash(firstRace);
